@@ -1,1 +1,38 @@
+import socket, threading, time
 
+HOST, PORT = "127.0.0.1", 5000
+
+def handle_tcp(conn, addr):
+    print(f"[TCP] Connection established with {addr}")
+    with conn:
+        data = conn.recv(1024).decode()
+        if data:
+            cid, msg = data.split("|", 1)
+            print(f"[TCP] {cid} says: {msg}")
+            conn.sendall(f"ACK from server: got '{msg}'".encode())
+    print(f"[TCP] Connection closed with {addr}")
+
+def tcp_server():
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    s.bind((HOST, PORT)); s.listen(5)
+    print(f"TCP server listening on {HOST}:{PORT}")
+    while True:
+        conn, addr = s.accept()
+        threading.Thread(target=handle_tcp, args=(conn, addr), daemon=True).start()
+
+def udp_server():
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    s.bind((HOST, PORT))
+    print(f"UDP server listening on {HOST}:{PORT}")
+    while True:
+        data, addr = s.recvfrom(1024)
+        cid, msg = data.decode().split("|", 1)
+        print(f"[UDP] {cid} says: {msg}  (from {addr})")
+        s.sendto(f"Server received: '{msg}'".encode(), addr)
+
+if __name__ == "__main__":
+    threading.Thread(target=tcp_server, daemon=True).start()
+    threading.Thread(target=udp_server, daemon=True).start()
+    while True:
+        time.sleep(1)
